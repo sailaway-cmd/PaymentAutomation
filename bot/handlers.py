@@ -1,5 +1,6 @@
 """Telegram handlers: react to incoming receipt photos/documents."""
 
+import asyncio
 import logging
 import tempfile
 from pathlib import Path
@@ -31,17 +32,17 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE, con
         image_path = Path(tmp_dir) / "receipt.jpg"
         await telegram_file.download_to_drive(image_path)
 
-        raw_text = extract_text(image_path)
+        raw_text = await asyncio.to_thread(extract_text, image_path)
         receipt = parse_receipt(raw_text)
 
     if receipt.sum is None:
         await message.reply_text("Couldn't read an amount from this receipt. Please try a clearer photo.")
         return
 
-    worksheet = get_worksheet(
-        config.google_credentials_path, config.google_sheet_id, config.google_sheet_worksheet
+    worksheet = await asyncio.to_thread(
+        get_worksheet, config.google_credentials_path, config.google_sheet_id, config.google_sheet_worksheet
     )
-    append_receipt(worksheet, receipt)
+    await asyncio.to_thread(append_receipt, worksheet, receipt)
 
     await message.reply_text(
         f"Saved: {receipt.name or 'unknown'} — {receipt.sum} "
